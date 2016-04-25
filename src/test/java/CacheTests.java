@@ -2,7 +2,10 @@ import org.junit.Assert;
 import org.junit.Test;
 
 /**
- * Test the basic functionality of the LruCache.
+ * Test the basic functionality of the LruCache. Could be cleaner
+ * but tests that the output is as expected given a specific input.
+ *
+ * TODO: Need to test multi-threaded access.
  *
  * Created by lcrawford on 4/16/16.
  */
@@ -11,7 +14,7 @@ public class CacheTests {
     @Test
     public void testBasicInsert(){
 
-        //Expected state of cache: 1 -> 2 -> 3
+        //Expected final state of cache: 1 -> 2 -> 3
         LruCache<Integer> cache = baseCache();
 
         /* Ensure the cache properly was built */
@@ -21,11 +24,11 @@ public class CacheTests {
 
     @Test
     public void testEviction(){
-        //Expected state of cache: 1 -> 2 -> 3
+        //Expected final state of cache: 1 -> 2 -> 3
         LruCache<Integer> cache = baseCache();
         int nextEviction = cache.peekNextEviction();
 
-        //Expected state of cache: 2 -> 3
+        //Expected final state of cache: 2 -> 3
         int evicted = cache.evict();
 
         /* Ensure the proper value was evicted and the state of the cache is correct afterwards */
@@ -36,10 +39,10 @@ public class CacheTests {
 
     @Test
     public void testStateInsertWithEviction(){
-        //Expected state of cache: 1 -> 2 -> 3
+        //Expected final state of cache: 1 -> 2 -> 3
         LruCache<Integer> cache = baseCache();
 
-        //Expected state of cache: 2 -> 3 -> 4
+        //Expected final state of cache: 2 -> 3 -> 4
         cache.add(4);
 
         /* Ensure the state of the cache is proper after an insert requiring an eviction */
@@ -49,10 +52,10 @@ public class CacheTests {
 
     @Test
     public void testMultiInsertEvictions(){
-        //Expected state of cache: 1 -> 2 -> 3
+        //Expected final state of cache: 1 -> 2 -> 3
         LruCache<Integer> cache = baseCache();
 
-        //Expected state of cache: 4 -> 5 -> 6
+        //Expected final state of cache: 4 -> 5 -> 6
         cache.add(4);
         cache.add(5);
         cache.add(6);
@@ -62,43 +65,59 @@ public class CacheTests {
     }
 
     @Test
-    public void testCacheAccess(){
-
-        //Expected state of cache: 1 -> 2 -> 3
+    public void testMultiOps(){
         LruCache<Integer> cache = baseCache();
+        cache.get(2);
 
-        /* Get the cache's first value */
-        int firstValue = cache.get(0);
+        Assert.assertTrue(true);
+    }
+
+    @Test
+    public void testCacheAccessNull(){
+
+        //Expected final state of cache: 1 -> 2 -> 3
+        LruCache<Integer> cache = baseCache();
+        Integer value = cache.get(0);
 
         //Expected state of cache: 2 -> 3 -> 1
-        Assert.assertTrue(firstValue == cache.peekLastEviction());
+        Assert.assertNull(value);
+    }
+
+    @Test
+    public void testCacheAccess(){
+        //Expected final state of cache: 1 -> 2 -> 3
+        LruCache<Integer> cache = baseCache();
+        Integer value = cache.get(1);
+        Assert.assertNotNull(value);
+        Assert.assertEquals(value.intValue(), 1);
     }
 
 
     @Test
     public void testComplicatedCacheUsage(){
 
-        //Expected state of cache: 1 -> 2 -> 3
+        //Expected final state of cache: 1 -> 2 -> 3
         LruCache<Integer> cache = baseCache();
 
-        //Expected state of cache: 2 -> 3 -> 4
-        int newInsert = 4;
+        //Expected final state of cache: 2 -> 3 -> 4
+        Integer newInsert = 4;
         cache.add(newInsert);
-        Assert.assertTrue(newInsert == cache.peekLastEviction());
+        Assert.assertEquals(newInsert,cache.peekLastEviction());
 
-        //Expected State of cache: 2 -> 4 -> 3
-        int accessValue = cache.get(1); //get's value at index 1;
-        Assert.assertTrue(accessValue == cache.peekLastEviction()); //ensure getting the value updates it as most recent
+        //Expected final state of cache: 2 -> 4 -> 3
+        Integer accessValue = cache.get(3); //get the cache item with a value of 3.
+        Assert.assertEquals(accessValue, cache.peekLastEviction()); //ensure getting the value updates it as most recent
 
-        //Expected state of cache: 4 -> 3 -> 2
-        accessValue = cache.get(0);
-        Assert.assertTrue(accessValue == cache.peekLastEviction());
+        //Expected final state of cache: 4 -> 3 -> 2
+        Integer value = 2;
+        accessValue = cache.get(value);
+        Assert.assertEquals(accessValue, cache.peekLastEviction());
 
-        //Expected state of cache: 3 -> 2 -> 1337
-        newInsert = 1337;
-        cache.add(newInsert);
+        //Expected final state of cache: 3 -> 2 -> 1337
+        Integer finalInsert = 1337;
+        cache.add(finalInsert);
         Assert.assertTrue(3 == cache.peekNextEviction());
-        Assert.assertTrue(newInsert == cache.peekLastEviction());
+        Assert.assertEquals(finalInsert, cache.peekLastEviction());
     }
 
     /**
@@ -153,7 +172,7 @@ public class CacheTests {
 
     /**
      * Utility method to build a simple, full cache.
-     * @return
+     * @return LruCache fill with 3 values (1, 2, 3)
      */
     private LruCache<Integer> baseCache(){
         LruCache<Integer> cache = new LruCache<>(3);

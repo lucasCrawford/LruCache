@@ -1,14 +1,19 @@
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
+
 /**
  * Simple implementation of an LRU-cache (Least Recently Used).
  *
  * The head of the cache is the least recently used, and the tail is the
  * most recently used. So the order of access frequency is from the tail to head.
  *
- * Access Time: O(n) worst case. Could be improved if we used some sort of hashing.
+ * Access Time: O(1)
  * Insert Time: O(1)
  * Remove Time: O(1)
+ * Memory usage: O(3n) => O(n). In the worst case we have a doubly linked listed
  * To Array: O(min(n,m)) where n is the size of the cache, m is size of the array.
- * Memory usage: O(n) worst case when capacity is reached. Memory is allocated dynamically
+ * with a reference in the HashMap as well.
  *
  * Created by Lucas Crawford on 4/15/16.
  */
@@ -16,17 +21,19 @@
 public class LruCache<T>{
     private static final int DEFAULT_SIZE = 10;
     private final int capacity; //capacity of cache cannot be changed.
-    private int size = 0;
+    private AtomicInteger size = new AtomicInteger();
 
     /* Internal pointers: Head represents next eviction, tail is the most recently accessed */
     private Node<T> head;
     private Node<T> tail;
+    private Map<T, Node<T>> dataMap;
 
     /**
      * Default constructor, capacity set to 10 (the default).
      */
     public LruCache(){
-        capacity = DEFAULT_SIZE;
+        this.capacity = DEFAULT_SIZE;
+        dataMap = new HashMap<>(this.capacity);
     }
 
     /**
@@ -36,10 +43,15 @@ public class LruCache<T>{
      */
     public LruCache(int capacity){
         this.capacity = capacity;
+        dataMap = new HashMap<>(this.capacity);
     }
 
-    public void add(T value){
-        insertNode(new Node<>(value), true);
+    /**
+     * Add a particular value to the cache.
+     * @param value - New value to add.
+     */
+    public final void add(T value){
+        insertNode(value, true);
     }
 
     /**
@@ -50,18 +62,33 @@ public class LruCache<T>{
      * @param value - The new node to insert
      * @param isNew - true if the node is new, false if we are just updating to the most recently accessed.
      */
-    private void insertNode(Node<T> value, boolean isNew){
-        if(head == null){
-            head = value;
-            tail = head;
-        }else{
-            if(isNew && size == capacity) {
-                evict();
+    protected final void insertNode(T value, boolean isNew){
+        Node<T> newNode = new Node<>(value);
+
+        synchronized (this) {
+            if (head == null) {
+                head = newNode;
+                tail = head;
+            } else {
+                if (isNew && size.get() == capacity) {
+                    evict();
+                }
+                boolean exists = dataMap.containsKey(value);
+                if (exists) {
+                    Node<T> previous = tail.getPrevious();
+                    newNode.setPrevious(previous);
+                    previous.setNext(newNode);
+                } else {
+                    newNode.setPrevious(tail);
+                    tail.setNext(newNode);
+                }
+                tail = newNode;
             }
-            tail.setNext(value);
-            tail = value;
+            dataMap.put(value, newNode);
         }
-        ++size;
+        if(isNew){
+            size.incrementAndGet();
+        }
     }
 
     /**
@@ -72,14 +99,18 @@ public class LruCache<T>{
      * @return returns the least recently used node just removed from the cache.
      */
     @SuppressWarnings("unchecked")
-    public T evict(){
+    public  T evict(){
         if(head == null){
             return null;
         }else{
-            Node<T> prevHead = head;
-            head = prevHead.getNext();
-            --size;
-            return prevHead.getValue();
+            synchronized (this) {
+                T previousKey = head.getValue();
+                Node<T> prevHead = dataMap.remove(previousKey);
+                head = prevHead.getNext();
+                if (head != null) head.setPrevious(null);
+                size.decrementAndGet();
+                return previousKey;
+            }
         }
     }
 
@@ -87,46 +118,34 @@ public class LruCache<T>{
      * Get the value at the desired index. Accessing this particular value will update the
      * node's access state to being at the end of the cache (or the most recently used).
      *
-     * @param index - index we wish to access in the cache.
+     * @param key - value the user wishes to get. Should be found in the map.
      * @return - Value found at the desired index.
      */
     @SuppressWarnings("unchecked")
-    public T get(int index){
-        Node<T> current = head;
-        Node<T> prev = head;
-
-        /* If the request was for a value that doesn't exist */
-        if(index > size){
-            throw new IndexOutOfBoundsException("Index " + index + " is invalid. " + "The size of the cache is: " + size);
+    public T get(T key) {
+        if (key == null) {
+            throw new NullPointerException("This key is null!");
         }
 
-        int idx = 0;
-        while(current != null){
-
-            /* Once we reach the desired index, update the structure */
-            if(idx == index){
-                Node<T> currentNext = current.getNext();
-
-                /* Update the head if necessary */
-                if(current == head){
-                    this.head = currentNext;
-                }
-
-                /* Update new tail if necessary */
-                if(currentNext == null){
-                    this.tail = prev;
-                }
-
-                insertNode(current, false);
-                return current.getValue();
+        synchronized (this) {
+            Node<T> value = dataMap.remove(key);
+            if (value == null) {
+                return null;
+            }
+            Node<T> prev = value.getPrevious();
+            Node<T> next = value.getNext();
+            if (prev != null) {
+                prev.setNext(next);
+            }
+            if (next != null) {
+                head = value == head ? next : head;
+                next.setPrevious(prev);
             }
 
-            /* Move the pointers */
-            prev = current;
-            current = current.getNext();
-            ++idx;
+            T result = value.getValue();
+            insertNode(result, false);
+            return result;
         }
-        return null;
     }
 
     /**
@@ -136,7 +155,7 @@ public class LruCache<T>{
      * @return the current number of objects in the cache
      */
     public int getSize(){
-        return this.size;
+        return this.size.get();
     }
 
     /**
@@ -176,7 +195,7 @@ public class LruCache<T>{
      */
     @SuppressWarnings("unchecked")
     public T[] toArray(T[] input){
-        if(this.size == 0){
+        if(this.size.get() == 0){
             return null;
         }
 
@@ -197,7 +216,7 @@ public class LruCache<T>{
      */
     @SuppressWarnings("unchecked")
     public T[] toReverseArray(T[] input){
-        if(this.size == 0){
+        if(this.size.get() == 0){
             return null;
         }
 
@@ -210,25 +229,35 @@ public class LruCache<T>{
     }
 
     /**
-     * Private class, non-accessible by anything but this data structure.
+     * This is a doubly-linked node that keeps track of both the next and previous
+     * node in memory. Requires both links to maintain constant time operations.
      *
-     * Used to internally keep track of the objects allocated in memory.
+     * Private class, non-accessible by anything but this data structure.
      */
     private class Node<R> {
         private R value;
-        private Node next;
+        private Node<R> next;
+        private Node<R> previous;
 
         public Node(){}
         public Node(R t){
             this.value = t;
         }
 
-        public Node getNext() {
+        public Node<R> getNext() {
             return next;
         }
 
-        public void setNext(Node next) {
+        public void setNext(Node<R> next) {
             this.next = next;
+        }
+
+        public Node<R> getPrevious() {
+            return previous;
+        }
+
+        public void setPrevious(Node<R> previous) {
+            this.previous = previous;
         }
 
         public R getValue() {
