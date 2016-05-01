@@ -1,3 +1,4 @@
+import com.thorrism.LruCache;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -171,17 +172,76 @@ public class CacheTests {
     }
 
     /**
+     * Test the iterator properly works.
+     */
+    @Test
+    public void testIterator(){
+        LruCache<Integer> cache = baseCache();
+        Integer[] verifyArr = new Integer[]{1, 2, 3};
+        int idx = 0;
+        for(Integer i : cache){
+            Assert.assertEquals(verifyArr[idx], i);
+            ++idx;
+        }
+    }
+
+    /**
+     * Test that inserting a value that already exists will
+     * remove the old value, and put the new value at the end
+     * of the cache's eviction order.
+     */
+    @Test
+    public void testInsertExistingValues(){
+        LruCache<Integer> cache = baseCache();
+        cache.add(1);
+        Assert.assertEquals(cache.getSize(), 3); //should still only have 3 values.
+        verifyCache(new Integer[]{3, 2, 1}, cache);
+    }
+
+    /**
+     * Test that inserting a value that already exists will
+     * remove the old value. Performs a couple inserts.
+     */
+    @Test
+    public void testInsertExistingValuesAdv(){
+        LruCache<Integer> cache = baseCache();
+        cache.add(1);
+        cache.add(2);
+        cache.add(3);
+        Assert.assertEquals(cache.getSize(), 3); //should still only have 3 values.
+
+        /* Values should be as they were originally even after inserts. */
+        verifyCache(new Integer[]{1, 2, 3}, cache);
+    }
+
+    /**
      * Utility method to build a simple, full cache.
      * @return LruCache fill with 3 values (1, 2, 3)
      */
     private LruCache<Integer> baseCache(){
         LruCache<Integer> cache = new LruCache<>(3);
-
         cache.add(1);
         cache.add(2);
         cache.add(3);
-
         return cache;
+    }
+
+    /**
+     * Utility method to verify a cache's contents against known
+     * expected results.
+     *
+     * Takes advantage of the cache' iterator so we should be sure
+     * to verify the iterator is proper for this utility to work...
+     * @param verifyArr - Expected outputs array
+     * @param cache - LruCache with results from various operations
+     * @param <T> - generic type shared by both the cache and verification array
+     */
+    private <T> void verifyCache(T[] verifyArr, LruCache<T> cache){
+        int idx = 0;
+        for(T t : cache){
+            Assert.assertEquals(verifyArr[idx], t);
+            ++idx;
+        }
     }
 
 }
