@@ -195,7 +195,7 @@ public class CacheTests {
         LruCache<Integer> cache = baseCache();
         cache.add(1);
         Assert.assertEquals(cache.getSize(), 3); //should still only have 3 values.
-        verifyCache(new Integer[]{3, 2, 1}, cache);
+        verifyCache(new Integer[]{2, 3, 1}, cache);
     }
 
     /**

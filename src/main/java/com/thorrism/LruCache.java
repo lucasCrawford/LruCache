@@ -280,7 +280,7 @@ public class LruCache<T> implements Iterable<T>{
     @Override
     public final Iterator<T> iterator() {
         return new Iterator<T>() {
-            private Node<T> currentPtr;
+            private Node<T> currentPtr = head;
 
             @Override
             public boolean hasNext() {
@@ -289,8 +289,9 @@ public class LruCache<T> implements Iterable<T>{
 
             @Override
             public T next() {
+                T value = currentPtr.getValue();
                 currentPtr = currentPtr.getNext();
-                return currentPtr.getValue();
+                return value;
             }
 
             @Override
