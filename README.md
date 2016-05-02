@@ -26,4 +26,4 @@ Integer value = cache.get(2);
 
 #TODO
 - Add UNIT testing for multithreaded access.
-- Need to add to public repository after fully complete with further testing
+- Need to add to public repository (like Maven Central or JCenter) after fully complete with further testing
